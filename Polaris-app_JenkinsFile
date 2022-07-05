@@ -1,0 +1,70 @@
+//Declarative Groovy script
+pipeline{
+    agent { node { label 'node9' } }
+    tools{
+        maven "maven 3.8.4"
+    }
+    stages{
+        stage ("1.Initialization"){
+            steps{
+    sh "echo Start of Access Bank application Build"
+    }
+        }
+    stage("2a. GitClone"){
+            steps{
+        sh "echo start git clone"
+        git "https://github.com/obie-DevOps-Engr/web-app.git"
+    }
+    }
+    stage('2b.Checkout SCM') {
+  steps {
+    checkout([
+      $class: 'GitSCM',
+      branches: [[name: 'master']],
+      userRemoteConfigs: [[
+        url: 'https://github.com/obie-DevOps-Engr/web-app.git',
+        credentialsId: '',
+      ]]
+     ])
+   }
+}
+    stage("3.Build"){
+        steps{
+        sh "echo Build the application with maven"
+        sh "mvn package"
+    }
+    }
+    stage("5.CodeQuality"){
+        steps{
+        sh "echo Performing code test with SonarQube"
+        //sh "mvn sonar:sonar"
+    }
+    }
+    stage("6.Artifactory"){
+        steps{
+        sh "echo Back up to Nexus"
+        //sh "mvn deploy"
+    }
+    }
+    stage("7.Deploy to UAT"){
+        steps{
+        sh "echo staging application for UAT"
+       deploy adapters: [tomcat9(credentialsId: 'tomcat-cred', path: '', url: 'http://172.31.20.6:8080/')], contextPath: 'Polaris-app', war: 'target/*.war'
+    }
+    }
+    stage("8.Approval"){
+        steps{
+        sh "echo Approval needed"
+ timeout(time:1, unit:'MINUTES'){
+ input message: 'Approval for Production'
+}
+}
+}
+stage("7.Deploy to PROD"){
+    steps{
+        sh "echo deploying application to production"
+        deploy adapters: [tomcat9(credentialsId: 'tomcat-cred', path: '', url: 'http://172.31.20.6:8080/')], contextPath: 'Access-app', war: 'target/*.war'
+    }
+}
+}
+}
